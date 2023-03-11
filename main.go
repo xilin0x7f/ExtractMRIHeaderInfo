@@ -37,8 +37,9 @@ func main() {
 				}
 				out, err := exec.Command("mrinfo", filepath.Join(*root, subject.Name(), subjectFile.Name()), "-json_all",
 					filepath.Join(*root, subject.Name(), subjectFile.Name()+".json")).CombinedOutput()
-				outStr := string(out)
-				fmt.Println(outStr)
+				_ = string(out)
+				//outStr := string(out)
+				//fmt.Println(outStr)
 				if err != nil {
 					fmt.Println(err)
 				}
