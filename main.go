@@ -20,36 +20,33 @@ import (
 )
 
 func main() {
-	root := flag.String("root", "", "数据存放路径，root/组别/被试")
+	root := flag.String("root", "", "数据存放路径，root/被试")
 	outputFileName := flag.String("o", "HeaderInfo.xlsx", "")
 	strReg := flag.String("strReg", "nii", "")
 	flag.Parse()
 	strReg4Match := regexp.MustCompile(*strReg)
-	groups, _ := os.ReadDir(*root)
+	subjects, _ := os.ReadDir(*root)
 	var jsonFilesName []string
-	for _, group := range groups {
-		subjects, _ := os.ReadDir(filepath.Join(*root, group.Name()))
-		for _, subject := range subjects {
-			subjectFiles, _ := os.ReadDir(filepath.Join(*root, group.Name(), subject.Name()))
-			for _, subjectFile := range subjectFiles {
-				if strReg4Match.MatchString(subjectFile.Name()) {
-					strSplit := strings.Split(subjectFile.Name(), ".")
-					if strSplit[len(strSplit)-1] != "nii" && strSplit[len(strSplit)-1] != "gz" {
-						continue
-					}
-					out, err := exec.Command("mrinfo", filepath.Join(*root, group.Name(), subject.Name(), subjectFile.Name()), "-json_all",
-						filepath.Join(*root, group.Name(), subject.Name(), subjectFile.Name()+".json")).CombinedOutput()
-					outStr := string(out)
-					fmt.Println(outStr)
-					if err != nil {
-						fmt.Println(err)
-					}
-
-					jsonFilesName = append(jsonFilesName, filepath.Join(*root, group.Name(), subject.Name(), subjectFile.Name()+".json"))
+	for _, subject := range subjects {
+		subjectFiles, _ := os.ReadDir(filepath.Join(*root, subject.Name()))
+		for _, subjectFile := range subjectFiles {
+			if strReg4Match.MatchString(subjectFile.Name()) {
+				strSplit := strings.Split(subjectFile.Name(), ".")
+				if strSplit[len(strSplit)-1] != "nii" && strSplit[len(strSplit)-1] != "gz" {
+					continue
 				}
+				out, err := exec.Command("mrinfo", filepath.Join(*root, subject.Name(), subjectFile.Name()), "-json_all",
+					filepath.Join(*root, subject.Name(), subjectFile.Name()+".json")).CombinedOutput()
+				outStr := string(out)
+				fmt.Println(outStr)
+				if err != nil {
+					fmt.Println(err)
+				}
+				jsonFilesName = append(jsonFilesName, filepath.Join(*root, subject.Name(), subjectFile.Name()+".json"))
 			}
 		}
 	}
+
 	if err := WriteJson2XLSX(jsonFilesName, filepath.Join(*root, *outputFileName), "Sheet1", "A"); err != nil {
 		log.Fatal(err)
 	}
