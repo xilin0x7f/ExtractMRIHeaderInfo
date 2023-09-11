@@ -10,43 +10,43 @@ import (
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 )
 
+func displayHelp() {
+	fmt.Println("Usage of ExtractMRIHeadInfo:")
+	flag.PrintDefaults()
+}
 func main() {
-	root := flag.String("root", "", "数据存放路径，root/被试")
-	outputFileName := flag.String("o", "HeaderInfo.xlsx", "")
-	strReg := flag.String("strReg", "nii", "")
+	root := flag.String("root", "", "-root 数据存放路径")
+	outputFileName := flag.String("o", "HeaderInfo.xlsx", "-o output.xlsx")
+	strReg := flag.String("strReg", "nii.gz$", "-strReg nii.gz$")
 	flag.Parse()
-	strReg4Match := regexp.MustCompile(*strReg)
-	subjects, _ := os.ReadDir(*root)
-	var jsonFilesName []string
-	for _, subject := range subjects {
-		subjectFiles, _ := os.ReadDir(filepath.Join(*root, subject.Name()))
-		for _, subjectFile := range subjectFiles {
-			if strReg4Match.MatchString(subjectFile.Name()) {
-				strSplit := strings.Split(subjectFile.Name(), ".")
-				if strSplit[len(strSplit)-1] != "nii" && strSplit[len(strSplit)-1] != "gz" {
-					continue
-				}
-				out, err := exec.Command("mrinfo", filepath.Join(*root, subject.Name(), subjectFile.Name()), "-json_all",
-					filepath.Join(*root, subject.Name(), subjectFile.Name()+".json")).CombinedOutput()
-				_ = string(out)
-				//outStr := string(out)
-				//fmt.Println(outStr)
-				if err != nil {
-					fmt.Println(err)
-				}
-				jsonFilesName = append(jsonFilesName, filepath.Join(*root, subject.Name(), subjectFile.Name()+".json"))
-			}
-		}
+	if len(os.Args) <= 1 {
+		displayHelp()
+		return
 	}
+	strReg4Match := regexp.MustCompile(*strReg)
+	var jsonFilesName []string
+	_ = filepath.Walk(*root, func(path string, info fs.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		if strReg4Match.MatchString(info.Name()) {
+			_, errCommand := exec.Command("mrinfo", path, "-json_all", path+".json").CombinedOutput()
+			if errCommand != nil {
+				fmt.Println(errCommand)
+			}
+			jsonFilesName = append(jsonFilesName, path+".json")
+		}
+		return nil
+	})
 
 	if err := WriteJson2XLSX(jsonFilesName, filepath.Join(*root, *outputFileName), "Sheet1", "A"); err != nil {
 		log.Fatal(err)
@@ -90,7 +90,7 @@ func WriteJson2XLSX(filesName []string, dstFileName, sheetName, start string) er
 	for idx := range res {
 		res[idx] = make([]interface{}, len(keys)+1)
 	}
-	res[0][0] = ""
+	res[0][0] = "json file"
 	for idx, key := range keys {
 		res[0][idx+1] = key
 	}
